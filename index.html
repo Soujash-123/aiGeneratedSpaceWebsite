@@ -32,20 +32,40 @@
         let isBlackhole = false;
         let blackholeX = 0;
         let blackholeY = 0;
+        let isVibrating = false;
+
+        const vibrationIncrement = 0.1; // Frequency increment per frame
+        const vibrationAmplitude = 2; // Amplitude of vibration
+
+        // Define colors in an array
+        const colors = [
+            'lightyellow', 'white'
+        ];
+
+        function getColorForTime(time) {
+            const colorIndex = Math.floor(time / 1000) % colors.length;
+            return colors[colorIndex];
+        }
 
         class Particle {
             constructor(x, y, isText) {
-                this.x = Math.random() * canvas.width;
-                this.y = Math.random() * canvas.height;
-                this.size = isText ? 2 : 1;
                 this.baseX = x;
                 this.baseY = y;
+                this.x = x;
+                this.y = y;
+                this.size = isText ? 2 : 1;
                 this.density = (Math.random() * 30) + 1;
                 this.isText = isText;
+                this.vibrationOffset = vibrationAmplitude;
+                this.vibrationFrequency = isText ? (Math.random() * 0.05) : 0; // Initial random frequency
+                this.time = Math.random() * 100; // Random initial time offset
             }
 
             draw() {
-                ctx.fillStyle = this.isText ? 'yellow' : 'white';
+                // Set particle color based on time
+                ctx.fillStyle = this.isText && isVibrating
+                    ? getColorForTime(this.time)
+                    : (this.isText ? 'yellow' : 'white');
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.closePath();
@@ -53,64 +73,70 @@
             }
 
             update() {
-                    if (isBlackhole && (this.isText || Math.random() < 0.1)) {
-        let dx = blackholeX - this.x;
-        let dy = blackholeY - this.y;
-        let distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (this.isText) {
-            let angleSpeed = 1.5; // Speed at which particles circle the black hole
-            let forceDirectionX = dx / distance;
-            let forceDirectionY = dy / distance;
-            let force = 30 / (distance + 1);
-
-            // Calculate angle and rotate the particle around the black hole
-            let angle = Math.atan2(dy, dx);
-            let rotationSpeed = 3.0; // Control how fast they circle
-
-            if (distance > 50) { // Start circling at a certain distance
-                this.x -= Math.sin(angle) * force * angleSpeed;
-                this.y += Math.cos(angle) * force * angleSpeed;
-            } else if (this.circleCount < 3) { // Track how many circles completed
-                let circleRadius = distance / 2;
-                this.x = blackholeX + Math.cos(angle + rotationSpeed) * circleRadius;
-                this.y = blackholeY + Math.sin(angle + rotationSpeed) * circleRadius;
-                this.circleCount += rotationSpeed;
-            } else {
-                // Once they've circled 3 times, get sucked into the black hole
-                this.x += forceDirectionX * force;
-                this.y += forceDirectionY * force;
-            }
-        } else {
-            // Non-text particles get sucked normally
-            let forceDirectionX = dx / distance;
-            let forceDirectionY = dy / distance;
-            let force = 30 / (distance + 1);
-            this.x += forceDirectionX * force;
-            this.y += forceDirectionY * force;
-        }
-                } else if (this.isText) {
-                    let dx = mouse.x - this.x;
-                    let dy = mouse.y - this.y;
+                if (isBlackhole && (this.isText || Math.random() < 0.1)) {
+                    let dx = blackholeX - this.x;
+                    let dy = blackholeY - this.y;
                     let distance = Math.sqrt(dx * dx + dy * dy);
-                    let forceDirectionX = dx / distance;
-                    let forceDirectionY = dy / distance;
-                    let maxDistance = mouse.radius;
-                    let force = (maxDistance - distance) / maxDistance;
-                    let directionX = forceDirectionX * force * this.density;
-                    let directionY = forceDirectionY * force * this.density;
 
-                    if (distance < mouse.radius) {
-                        this.x -= directionX;
-                        this.y -= directionY;
-                    } else {
-                        if (this.x !== this.baseX) {
-                            let dx = this.x - this.baseX;
-                            this.x -= dx/10;
+                    if (this.isText) {
+                        let angleSpeed = 1.5;
+                        let forceDirectionX = dx / distance;
+                        let forceDirectionY = dy / distance;
+                        let force = 60 / (distance + 1);
+
+                        let angle = Math.atan2(dy, dx);
+                        let rotationSpeed = 3.0;
+
+                        if (distance > 50) {
+                            this.x -= Math.sin(angle) * force * angleSpeed;
+                            this.y += Math.cos(angle) * force * angleSpeed;
+                        } else if (this.circleCount < 3) {
+                            let circleRadius = distance / 2;
+                            this.x = blackholeX + Math.cos(angle + rotationSpeed) * circleRadius;
+                            this.y = blackholeY + Math.sin(angle + rotationSpeed) * circleRadius;
+                            this.circleCount += rotationSpeed;
+                        } else {
+                            this.x += forceDirectionX * force;
+                            this.y += forceDirectionY * force;
                         }
-                        if (this.y !== this.baseY) {
-                            let dy = this.y - this.baseY;
-                            this.y -= dy/10;
+                    } else {
+                        let forceDirectionX = dx / distance;
+                        let forceDirectionY = dy / distance;
+                        let force = 30 / (distance + 1);
+                        this.x += forceDirectionX * force;
+                        this.y += forceDirectionY * force;
+                    }
+                } else if (this.isText) {
+                    if (isVibrating) {
+                        // Vibrate around the base position with increasing frequency
+                        this.x = this.baseX + Math.sin(this.time * this.vibrationFrequency) * this.vibrationOffset;
+                        this.y = this.baseY + Math.cos(this.time * this.vibrationFrequency) * this.vibrationOffset;
+                        this.time += 0.1; // Increment time for the next frame
+                        this.vibrationFrequency += vibrationIncrement; // Increase frequency over time
+                    } else {
+                        // Apply mouse attraction effect if not vibrating
+                        let dx = mouse.x - this.x;
+                        let dy = mouse.y - this.y;
+                        let distance = Math.sqrt(dx * dx + dy * dy);
+                        let forceDirectionX = dx / distance;
+                        let forceDirectionY = dy / distance;
+                        let maxDistance = mouse.radius;
+                        let force = (maxDistance - distance) / maxDistance;
+                        let directionX = forceDirectionX * force * this.density;
+                        let directionY = forceDirectionY * force * this.density;
+
+                        if (distance < mouse.radius) {
+                            this.x -= directionX;
+                            this.y -= directionY;
+                        } else {
+                            if (this.x !== this.baseX) {
+                                let dx = this.x - this.baseX;
+                                this.x -= dx / 10;
+                            }
+                            if (this.y !== this.baseY) {
+                                let dy = this.y - this.baseY;
+                                this.y -= dy / 10;
+                            }
                         }
                     }
                 } else {
@@ -127,7 +153,6 @@
             particles.length = 0;
             backgroundParticles.length = 0;
 
-            // Create an offscreen canvas for text rendering
             const offscreenCanvas = document.createElement('canvas');
             offscreenCanvas.width = canvas.width;
             offscreenCanvas.height = canvas.height;
@@ -137,11 +162,11 @@
             offscreenCtx.fillStyle = 'white';
             offscreenCtx.textAlign = 'center';
             offscreenCtx.textBaseline = 'middle';
-            offscreenCtx.fillText(text, offscreenCanvas.width/2, offscreenCanvas.height/2);
+            offscreenCtx.fillText(text, offscreenCanvas.width / 2, offscreenCanvas.height / 2);
 
             try {
                 const textCoordinates = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-                const step = 4; // Adjust this value to change the density of particles
+                const step = 4;
                 for (let y = 0; y < offscreenCanvas.height; y += step) {
                     for (let x = 0; x < offscreenCanvas.width; x += step) {
                         const index = (y * 4 * textCoordinates.width) + (x * 4) + 3;
@@ -154,7 +179,6 @@
                 console.error("Error creating text particles:", error);
             }
 
-            // Add background particles
             const particleCount = Math.floor((canvas.width * canvas.height) / 1000);
             for (let i = 0; i < particleCount; i++) {
                 backgroundParticles.push(new Particle(Math.random() * canvas.width, Math.random() * canvas.height, false));
@@ -173,21 +197,25 @@
         });
 
         window.addEventListener('mousedown', function(event) {
-            if (event.button === 2) { // Right mouse button
+            if (event.button === 2) {
                 isBlackhole = true;
                 blackholeX = event.x;
                 blackholeY = event.y;
+            } else if (event.button === 0) {
+                isVibrating = true;
             }
         });
 
         window.addEventListener('mouseup', function(event) {
-            if (event.button === 2) { // Right mouse button
+            if (event.button === 2) {
                 isBlackhole = false;
+            } else if (event.button === 0) {
+                isVibrating = false;
             }
         });
 
         window.addEventListener('contextmenu', function(event) {
-            event.preventDefault(); // Prevent the context menu from appearing
+            event.preventDefault();
         });
 
         function animate() {
